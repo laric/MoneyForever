@@ -5,5 +5,5 @@
 ## Version: 0.1.0
 ## SavedVariables: MoneyForeverDB
 
-LibDataBroker/LibDataBroker-1.1.lua
+Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
 Core.lua
