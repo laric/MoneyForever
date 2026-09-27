@@ -1,0 +1,9 @@
+## Interface: 16001
+## Title: MoneyForever
+## Notes: Tracks your gold, session gain/loss, today's gain/loss, and other characters.
+## Author: Michael Irving
+## Version: 0.1.0
+## SavedVariables: MoneyForeverDB
+
+LibDataBroker/LibDataBroker-1.1.lua
+Core.lua
