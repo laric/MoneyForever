@@ -333,52 +333,52 @@ frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 -- Main dropdown menu builder for the data source. Level 1 shows summary info and
 -- faction entries; Level 2 expands into the alt list for the selected faction.
 local function buildDropdownMenu(menuFrame, level, menuList)
-    local info = UIDropDownMenu_CreateInfo()
+    local info = LibDD:UIDropDownMenu_CreateInfo()
 
     if level == 1 then
         info.isTitle = true
         info.text = "MoneyForever"
         info.notCheckable = true
-        UIDropDownMenu_AddButton(info, level)
+        LibDD:UIDropDownMenu_AddButton(info, level)
 
-        info = UIDropDownMenu_CreateInfo()
+        info = LibDD:UIDropDownMenu_CreateInfo()
         info.text = "Current: " .. MoneyForever.GetCurrentGoldText()
         info.notCheckable = true
-        UIDropDownMenu_AddButton(info, level)
+        LibDD:UIDropDownMenu_AddButton(info, level)
 
-        info = UIDropDownMenu_CreateInfo()
+        info = LibDD:UIDropDownMenu_CreateInfo()
         info.text = "Current faction total: " .. formatMoney(MoneyForever.GetCurrentFactionTotal())
         info.notCheckable = true
-        UIDropDownMenu_AddButton(info, level)
+        LibDD:UIDropDownMenu_AddButton(info, level)
 
-        info = UIDropDownMenu_CreateInfo()
+        info = LibDD:UIDropDownMenu_CreateInfo()
         info.text = "Session: " .. MoneyForever.GetSessionText()
         info.notCheckable = true
-        UIDropDownMenu_AddButton(info, level)
+        LibDD:UIDropDownMenu_AddButton(info, level)
 
-        info = UIDropDownMenu_CreateInfo()
+        info = LibDD:UIDropDownMenu_CreateInfo()
         info.text = "Today: " .. MoneyForever.GetTodayText()
         info.notCheckable = true
-        UIDropDownMenu_AddButton(info, level)
+        LibDD:UIDropDownMenu_AddButton(info, level)
 
         if hasFactionData("Alliance") then
-            info = UIDropDownMenu_CreateInfo()
+            info = LibDD:UIDropDownMenu_CreateInfo()
             info.text = "Alliance"
             info.value = "Alliance"
             info.menuList = "Alliance"
             info.hasArrow = true
             info.notCheckable = true
-            UIDropDownMenu_AddButton(info, level)
+            LibDD:UIDropDownMenu_AddButton(info, level)
         end
 
         if hasFactionData("Horde") then
-            info = UIDropDownMenu_CreateInfo()
+            info = LibDD:UIDropDownMenu_CreateInfo()
             info.text = "Horde"
             info.value = "Horde"
             info.menuList = "Horde"
             info.hasArrow = true
             info.notCheckable = true
-            UIDropDownMenu_AddButton(info, level)
+            LibDD:UIDropDownMenu_AddButton(info, level)
         end
     elseif level == 2 and (menuList == "Alliance" or menuList == "Horde") then
         local records = getFactionRecords(menuList)
@@ -404,31 +404,31 @@ local function buildDropdownMenu(menuFrame, level, menuList)
                 return (a.name or "") < (b.name or "")
             end)
 
-            info = UIDropDownMenu_CreateInfo()
+            info = LibDD:UIDropDownMenu_CreateInfo()
             info.isTitle = true
             info.text = realm
             info.notCheckable = true
-            UIDropDownMenu_AddButton(info, level)
+            LibDD:UIDropDownMenu_AddButton(info, level)
 
             for _, entry in ipairs(realmEntries) do
-                info = UIDropDownMenu_CreateInfo()
+                info = LibDD:UIDropDownMenu_CreateInfo()
                 info.text = string.format("%s: %s", entry.name, formatMoney(entry.gold))
                 info.notCheckable = true
-                UIDropDownMenu_AddButton(info, level)
+                LibDD:UIDropDownMenu_AddButton(info, level)
             end
         end
 
-        info = UIDropDownMenu_CreateInfo()
+        info = LibDD:UIDropDownMenu_CreateInfo()
         info.text = "Total: " .. formatMoney(getFactionTotal(menuList))
         info.notCheckable = true
-        UIDropDownMenu_AddButton(info, level)
+        LibDD:UIDropDownMenu_AddButton(info, level)
     end
 end
 
 if LibStub and LibStub:GetLibrary("LibDataBroker-1.1", true) then
     local LDB = LibStub:GetLibrary("LibDataBroker-1.1", true)
-    MoneyForever.DropDown = CreateFrame("Frame", "MoneyForeverDropDownMenu", UIParent, "UIDropDownMenuTemplate")
-    UIDropDownMenu_Initialize(MoneyForever.DropDown, buildDropdownMenu, "MENU")
+    MoneyForever.DropDown = LibDD:Create_UIDropDownMenu("MoneyForeverDropDownMenu", UIParent)
+    LibDD:UIDropDownMenu_Initialize(MoneyForever.DropDown, buildDropdownMenu, "MENU")
 
     MoneyForever.LDB = LDB:NewDataObject("MoneyForever", {
         type = "data source",
@@ -442,16 +442,18 @@ if LibStub and LibStub:GetLibrary("LibDataBroker-1.1", true) then
             end
         end,
         OnEnter = function(self)
-            ToggleDropDownMenu(1, nil, MoneyForever.DropDown, self, 0, 0)
+            LibDD:ToggleDropDownMenu(1, nil, MoneyForever.DropDown, self, 0, 0)
         end,
         OnLeave = function(self)
             local overSource = self:IsMouseOver()
             local overMenu = MoneyForever.DropDown and MoneyForever.DropDown:IsMouseOver()
-            local overList1 = DropDownList1 and DropDownList1:IsShown() and DropDownList1:IsMouseOver()
-            local overList2 = DropDownList2 and DropDownList2:IsShown() and DropDownList2:IsMouseOver()
+            local list1 = _G.L_DropDownList1
+            local list2 = _G.L_DropDownList2
+            local overList1 = list1 and list1:IsShown() and list1:IsMouseOver()
+            local overList2 = list2 and list2:IsShown() and list2:IsMouseOver()
 
             if not (overSource or overMenu or overList1 or overList2) then
-                CloseDropDownMenus()
+                LibDD:CloseDropDownMenus()
             end
         end,
     })
