@@ -10,6 +10,9 @@ local defaults = {
     characters = {},
 }
 
+-- Load the LibUIDropDownMenu library for creating dropdown menus.
+local LibDD = LibStub:GetLibrary("LibUIDropDownMenu-4.0")
+
 -- Ensure the saved-variable database exists and contains the expected structure.
 -- The layout is: MoneyForeverDB.characters[realm][character] = { gold, faction, ... }
 local function ensureDB()

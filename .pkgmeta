@@ -1,6 +1,8 @@
 enable-nolib-creation: no
 externals:
+  Libs/LibStub: https://repos.wowace.com/wow/libstub/trunk
   Libs/LibDataBroker-1.1: https://github.com/tekkub/libdatabroker-1-1
-
+  Libs/LibUIDropDownMenu: https://repos.curseforge.com/wow/libuidropdownmenu/trunk/LibUIDropDownMenu/
 ignore:
   - Libs/LibDataBroker-1.1/README.textile
+  - Libs/LibStub/tests

@@ -5,5 +5,7 @@
 ## Version: 0.1.0
 ## SavedVariables: MoneyForeverDB
 
+Libs\LibStub\LibStub.lua
 Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
+Libs\LibUIDropDownMenu/LibUIDropDownMenu.xml
 Core.lua
