@@ -154,6 +154,31 @@ local function formatMoney(value)
     return sign .. table.concat(parts, " ")
 end
 
+local function formatMoneyWithIcons(value)
+    local absValue = math.abs(value)
+    local sign = value < 0 and "-" or ""
+    local gold = math.floor(absValue / 10000)
+    local silver = math.floor((absValue % 10000) / 100)
+    local copper = absValue % 100
+
+    local goldIcon = "|TInterface\\MoneyFrame\\UI-GoldIcon:0:0:2:0|t"
+    local silverIcon = "|TInterface\\MoneyFrame\\UI-SilverIcon:0:0:2:0|t"
+    local copperIcon = "|TInterface\\MoneyFrame\\UI-CopperIcon:0:0:2:0|t"
+
+    local parts = {}
+    if gold > 0 then
+        table.insert(parts, string.format("%d%s", gold, goldIcon))
+    end
+    if silver > 0 then
+        table.insert(parts, string.format("%d%s", silver, silverIcon))
+    end
+    if copper > 0 or #parts == 0 then
+        table.insert(parts, string.format("%d%s", copper, copperIcon))
+    end
+
+    return sign .. table.concat(parts, " ")
+end
+
 -- Return a flat list of all tracked characters for sorting and faction summaries.
 local function getPlayerList()
     local db = ensureDB()
@@ -247,6 +272,14 @@ end
 local function hasFactionData(faction)
     local records = getFactionRecords(faction)
     return #records > 0
+end
+
+local function getEntriesTotal(entries)
+    local total = 0
+    for _, entry in ipairs(entries or {}) do
+        total = total + (tonumber(entry.gold) or 0)
+    end
+    return total
 end
 
 local function removeCharacterRecord(realm, name)
@@ -346,9 +379,13 @@ local function getLevelTwoMenuMinWidth(grouped, menuList)
             measure:SetText(rowText)
             widestText = math.max(widestText, measure:GetStringWidth() or 0)
         end
+
+        local realmTotalText = string.format("Server total: %s", formatMoney(getEntriesTotal(realmEntries)))
+        measure:SetText(realmTotalText)
+        widestText = math.max(widestText, measure:GetStringWidth() or 0)
     end
 
-    measure:SetText("Total: " .. formatMoney(getFactionTotal(menuList)))
+    measure:SetText("Grand total: " .. formatMoney(getFactionTotal(menuList)))
     widestText = math.max(widestText, measure:GetStringWidth() or 0)
 
     return math.ceil(widestText) + 25
@@ -452,7 +489,7 @@ end
 function MoneyForever.GetButtonText()
     local record = getCurrentRecord()
     refreshCurrentRecord()
-    return formatMoney(record.gold)
+    return formatMoneyWithIcons(record.gold)
 end
 
 local function printSummary()
@@ -491,6 +528,7 @@ local function buildDropdownMenu(menuFrame, level, menuList)
 
         info = LibDD:UIDropDownMenu_CreateInfo()
         info.text = "Current faction total: " .. formatMoney(MoneyForever.GetCurrentFactionTotal())
+        info.isTitle = true
         info.notCheckable = true
         LibDD:UIDropDownMenu_AddButton(info, level)
 
@@ -566,10 +604,20 @@ local function buildDropdownMenu(menuFrame, level, menuList)
                 local entryButton = getNewestDropdownButton(level)
                 configureDeleteIcon(entryButton, entry.realm, entry.name)
             end
+
+            info = LibDD:UIDropDownMenu_CreateInfo()
+            info.text = string.format("Server total: %s", formatMoney(getEntriesTotal(realmEntries)))
+            info.isTitle = true
+            info.minWidth = levelTwoMinWidth
+            info.notCheckable = true
+            LibDD:UIDropDownMenu_AddButton(info, level)
+            local realmTotalButton = getNewestDropdownButton(level)
+            hideDeleteIcon(realmTotalButton)
         end
 
         info = LibDD:UIDropDownMenu_CreateInfo()
-        info.text = "Total: " .. formatMoney(getFactionTotal(menuList))
+        info.text = "Grand total: " .. formatMoney(getFactionTotal(menuList))
+        info.isTitle = true
         info.minWidth = levelTwoMinWidth
         info.notCheckable = true
         LibDD:UIDropDownMenu_AddButton(info, level)
@@ -585,7 +633,7 @@ if LibStub and LibStub:GetLibrary("LibDataBroker-1.1", true) then
 
     MoneyForever.LDB = LDB:NewDataObject("MoneyForever", {
         type = "data source",
-        text = "0g 0s 0c",
+        text = formatMoneyWithIcons(0),
         icon = "Interface\\Icons\\INV_Misc_Coin_01",
         label = "MoneyForever",
         OnClick = function(self, button)
@@ -615,7 +663,7 @@ if LibStub and LibStub:GetLibrary("LibDataBroker-1.1", true) then
         if MoneyForever.LDB then
             local record = getCurrentRecord()
             refreshCurrentRecord()
-            MoneyForever.LDB.text = formatMoney(record.gold)
+            MoneyForever.LDB.text = formatMoneyWithIcons(record.gold)
         end
     end
 
