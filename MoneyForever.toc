@@ -2,7 +2,7 @@
 ## Title: MoneyForever
 ## Notes: Tracks your gold, session gain/loss, today's gain/loss, and other characters.
 ## Author: Michael Irving
-## Version: 0.1.0
+## Version: @project-version@
 ## SavedVariables: MoneyForeverDB
 ## X-Curse-Project-ID: 1714998
 
