@@ -249,6 +249,149 @@ local function hasFactionData(faction)
     return #records > 0
 end
 
+local function removeCharacterRecord(realm, name)
+    if type(realm) ~= "string" or realm == "" or type(name) ~= "string" or name == "" then
+        return false, "Invalid character reference."
+    end
+
+    local currentRealm = realmKey(GetRealmName())
+    local currentName = characterKey()
+    if realm == currentRealm and name == currentName then
+        return false, "Cannot remove data for the currently logged-in character."
+    end
+
+    local db = ensureDB()
+    if type(db.characters[realm]) ~= "table" or db.characters[realm][name] == nil then
+        return false, "Character data was not found."
+    end
+
+    db.characters[realm][name] = nil
+    if next(db.characters[realm]) == nil then
+        db.characters[realm] = nil
+    end
+
+    return true
+end
+
+local deleteCharacterPopupId = "MONEYFOREVER_CONFIRM_DELETE_CHARACTER"
+StaticPopupDialogs[deleteCharacterPopupId] = {
+    text = "Delete saved data for %s?\nThis cannot be undone.",
+    button1 = YES,
+    button2 = NO,
+    OnAccept = function(_, data)
+        if type(data) ~= "table" then
+            print("MoneyForever: Could not remove character data.")
+            return
+        end
+
+        local removed, reason = removeCharacterRecord(data.realm, data.name)
+        if removed then
+            print(string.format("MoneyForever: Removed saved data for %s-%s.", data.name, data.realm))
+        else
+            print(string.format("MoneyForever: %s", reason or "Could not remove character data."))
+        end
+        LibDD:CloseDropDownMenus()
+    end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = STATICPOPUP_NUMDIALOGS,
+}
+
+local function promptRemoveCharacterRecord(realm, name)
+    if type(realm) ~= "string" or realm == "" or type(name) ~= "string" or name == "" then
+        print("MoneyForever: Invalid character reference.")
+        return
+    end
+
+    LibDD:CloseDropDownMenus()
+
+    local characterLabel = string.format("%s-%s", name, realm)
+    local popup = StaticPopup_Show(deleteCharacterPopupId, characterLabel, nil, { realm = realm, name = name })
+    if not popup then
+        print("MoneyForever: Could not show delete confirmation.")
+    end
+end
+
+local function getNewestDropdownButton(level)
+    local listFrame = _G["L_DropDownList" .. level]
+    if not listFrame or not listFrame.numButtons or listFrame.numButtons < 1 then
+        return nil
+    end
+
+    return _G[listFrame:GetName() .. "Button" .. listFrame.numButtons]
+end
+
+local function hideDeleteIcon(button)
+    if button and button.MoneyForeverDeleteButton then
+        button.MoneyForeverDeleteButton:Hide()
+    end
+end
+
+local function getLevelTwoMenuMinWidth(grouped, menuList)
+    local measure = MoneyForever._menuWidthMeasure
+    if not measure then
+        measure = UIParent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        MoneyForever._menuWidthMeasure = measure
+    end
+
+    local widestText = 0
+
+    for realm, realmEntries in pairs(grouped) do
+        measure:SetText(realm)
+        widestText = math.max(widestText, measure:GetStringWidth() or 0)
+
+        for _, entry in ipairs(realmEntries) do
+            local rowText = string.format("%s: %s", entry.name, formatMoney(entry.gold))
+            measure:SetText(rowText)
+            widestText = math.max(widestText, measure:GetStringWidth() or 0)
+        end
+    end
+
+    measure:SetText("Total: " .. formatMoney(getFactionTotal(menuList)))
+    widestText = math.max(widestText, measure:GetStringWidth() or 0)
+
+    return math.ceil(widestText) + 25
+end
+
+local function configureDeleteIcon(button, realm, name)
+    if not button then
+        return
+    end
+
+    local deleteButton = button.MoneyForeverDeleteButton
+    if not deleteButton then
+        deleteButton = CreateFrame("Button", nil, button)
+        deleteButton:SetSize(16, 16)
+        deleteButton:SetPoint("RIGHT", button, "RIGHT", -8, 0)
+        deleteButton:SetNormalTexture("Interface\\Buttons\\UI-GroupLoot-Pass-Up")
+        deleteButton:SetPushedTexture("Interface\\Buttons\\UI-GroupLoot-Pass-Down")
+        deleteButton:SetHighlightTexture("Interface\\Buttons\\UI-GroupLoot-Pass-Highlight", "ADD")
+        deleteButton:GetNormalTexture():SetVertexColor(1, 0.2, 0.2, 1)
+        deleteButton:GetPushedTexture():SetVertexColor(1, 0.2, 0.2, 1)
+        deleteButton:SetScript("OnEnter", function(self)
+            if GameTooltip then
+                GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+                GameTooltip:SetText("|cffff4d4dDelete saved character data|r")
+                GameTooltip:Show()
+            end
+        end)
+        deleteButton:SetScript("OnLeave", function()
+            if GameTooltip then
+                GameTooltip:Hide()
+            end
+        end)
+        button.MoneyForeverDeleteButton = deleteButton
+    end
+
+    deleteButton.realm = realm
+    deleteButton.characterName = name
+    deleteButton:SetScript("OnClick", function(self)
+        promptRemoveCharacterRecord(self.realm, self.characterName)
+    end)
+    deleteButton:Show()
+end
+
 function MoneyForever.GetCurrentFactionTotal()
     local currentFaction = getCurrentFaction()
     return getFactionTotal(currentFaction)
@@ -397,6 +540,7 @@ local function buildDropdownMenu(menuFrame, level, menuList)
             table.insert(realmNames, realm)
         end
         table.sort(realmNames)
+        local levelTwoMinWidth = getLevelTwoMenuMinWidth(grouped, menuList)
 
         for _, realm in ipairs(realmNames) do
             local realmEntries = grouped[realm]
@@ -407,21 +551,30 @@ local function buildDropdownMenu(menuFrame, level, menuList)
             info = LibDD:UIDropDownMenu_CreateInfo()
             info.isTitle = true
             info.text = realm
+            info.minWidth = levelTwoMinWidth
             info.notCheckable = true
             LibDD:UIDropDownMenu_AddButton(info, level)
+            local realmButton = getNewestDropdownButton(level)
+            hideDeleteIcon(realmButton)
 
             for _, entry in ipairs(realmEntries) do
                 info = LibDD:UIDropDownMenu_CreateInfo()
                 info.text = string.format("%s: %s", entry.name, formatMoney(entry.gold))
+                info.minWidth = levelTwoMinWidth
                 info.notCheckable = true
                 LibDD:UIDropDownMenu_AddButton(info, level)
+                local entryButton = getNewestDropdownButton(level)
+                configureDeleteIcon(entryButton, entry.realm, entry.name)
             end
         end
 
         info = LibDD:UIDropDownMenu_CreateInfo()
         info.text = "Total: " .. formatMoney(getFactionTotal(menuList))
+        info.minWidth = levelTwoMinWidth
         info.notCheckable = true
         LibDD:UIDropDownMenu_AddButton(info, level)
+        local totalButton = getNewestDropdownButton(level)
+        hideDeleteIcon(totalButton)
     end
 end
 
