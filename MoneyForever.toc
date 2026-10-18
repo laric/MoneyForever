@@ -1,4 +1,4 @@
-## Interface: 16001
+## Interface: 120105, 120107, 16001
 ## Title: MoneyForever
 ## Notes: Tracks your gold, session gain/loss, today's gain/loss, and other characters.
 ## Author: Michael Irving
