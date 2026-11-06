@@ -39,6 +39,73 @@ local function realmKey(value)
     return string.gsub(realm, "%s+", "")
 end
 
+-- WoW Forever runs every character on one megaserver with many subrealms, so the
+-- realm says nothing useful there. Group by the ruleset the character plays under
+-- instead. Retail keeps grouping by realm.
+local function ruleActive(ruleName)
+    local rule = Enum and Enum.GameRule and Enum.GameRule[ruleName]
+    if rule == nil or not (C_GameRules and C_GameRules.IsGameRuleActive) then
+        return nil
+    end
+    local ok, active = pcall(C_GameRules.IsGameRuleActive, rule)
+    if not ok then
+        return nil
+    end
+    return active and true or false
+end
+
+local function getRulesetName()
+    local rp = ruleActive("RPRuleset")
+    local pvp = ruleActive("PvPRuleset")
+    local hardcore = ruleActive("HardcoreRuleset")
+    if rp == nil or pvp == nil or hardcore == nil then
+        return nil -- rule API unavailable (Retail) or not ready yet
+    end
+
+    if hardcore then
+        return "Hardcore"
+    elseif rp and pvp then
+        return "RP PvP"
+    elseif rp then
+        return "RP PvE"
+    elseif pvp then
+        return "PvP"
+    end
+    return "PvE"
+end
+
+local usesRulesets = false
+local function getGroupKey()
+    local ruleset = getRulesetName()
+    if ruleset then
+        usesRulesets = true
+        return ruleset
+    end
+    return realmKey(GetRealmName())
+end
+
+-- Move records saved under the old per-subrealm key into the ruleset group.
+local function migrateRealmRecord(db, group, name)
+    if not usesRulesets then
+        return
+    end
+    local realm = realmKey(GetRealmName())
+    local old = db.characters[realm]
+    if realm == group or type(old) ~= "table" or type(old[name]) ~= "table" then
+        return
+    end
+    if type(db.characters[group]) ~= "table" then
+        db.characters[group] = {}
+    end
+    if db.characters[group][name] == nil then
+        db.characters[group][name] = old[name]
+    end
+    old[name] = nil
+    if next(old) == nil then
+        db.characters[realm] = nil
+    end
+end
+
 -- Character names are used directly as keys within each realm table and must
 -- include the last name when it exists so characters with the same first name
 -- remain distinct.
@@ -97,8 +164,9 @@ end
 
 local function getCurrentRecord()
     local db = ensureDB()
-    local realm = realmKey(GetRealmName())
+    local realm = getGroupKey()
     local name = characterKey()
+    migrateRealmRecord(db, realm, name)
 
     if type(db.characters[realm]) ~= "table" then
         db.characters[realm] = {}
@@ -183,7 +251,7 @@ end
 local function getPlayerList()
     local db = ensureDB()
     local records = {}
-    local currentRealm = realmKey(GetRealmName())
+    local currentRealm = getGroupKey()
     local currentName = characterKey()
 
     for realm, chars in pairs(db.characters) do
@@ -287,7 +355,7 @@ local function removeCharacterRecord(realm, name)
         return false, "Invalid character reference."
     end
 
-    local currentRealm = realmKey(GetRealmName())
+    local currentRealm = getGroupKey()
     local currentName = characterKey()
     if realm == currentRealm and name == currentName then
         return false, "Cannot remove data for the currently logged-in character."
@@ -380,7 +448,7 @@ local function getLevelTwoMenuMinWidth(grouped, menuList)
             widestText = math.max(widestText, measure:GetStringWidth() or 0)
         end
 
-        local realmTotalText = string.format("Server total: %s", formatMoney(getEntriesTotal(realmEntries)))
+        local realmTotalText = string.format((usesRulesets and "Ruleset total: %s" or "Server total: %s"), formatMoney(getEntriesTotal(realmEntries)))
         measure:SetText(realmTotalText)
         widestText = math.max(widestText, measure:GetStringWidth() or 0)
     end
@@ -467,8 +535,9 @@ function MoneyForever.GetTooltipText()
 
         for _, entry in ipairs(records) do
             if not (entry.realm == currentRealm and entry.name == currentName) then
-                local realmName = string.gsub(entry.realm, "%s+", "")
-                table.insert(names, string.format("%s-%s: %s", entry.name, realmName, formatMoney(entry.gold)))
+                local label = usesRulesets and string.format("%s (%s)", entry.name, entry.realm)
+                    or string.format("%s-%s", entry.name, (string.gsub(entry.realm, "%s+", "")))
+                table.insert(names, string.format("%s: %s", label, formatMoney(entry.gold)))
             end
         end
 
@@ -606,7 +675,7 @@ local function buildDropdownMenu(menuFrame, level, menuList)
             end
 
             info = LibDD:UIDropDownMenu_CreateInfo()
-            info.text = string.format("Server total: %s", formatMoney(getEntriesTotal(realmEntries)))
+            info.text = string.format((usesRulesets and "Ruleset total: %s" or "Server total: %s"), formatMoney(getEntriesTotal(realmEntries)))
             info.isTitle = true
             info.minWidth = levelTwoMinWidth
             info.notCheckable = true
