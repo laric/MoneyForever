@@ -282,12 +282,12 @@ local function getPlayerList()
 end
 
 -- Update the current character’s live data: current gold, session change, and daily change.
-local function refreshCurrentRecord()
+local function refreshCurrentRecord(resetSession)
     local currentMoney = GetMoney() or 0
     local record = getCurrentRecord()
     local dateKey = date("%Y-%m-%d", time())
 
-    if record.sessionStart == nil or record.sessionStart == 0 then
+    if resetSession or record.sessionStart == nil or record.sessionStart == 0 then
         record.sessionStart = currentMoney
         record.sessionNet = 0
     end
@@ -570,7 +570,11 @@ SLASH_MONEYFOREVER2 = "/mf"
 SlashCmdList["MONEYFOREVER"] = printSummary
 
 frame:SetScript("OnEvent", function(self, event, ...)
-    if event == "PLAYER_LOGIN" or event == "PLAYER_MONEY" or event == "PLAYER_ENTERING_WORLD" then
+    if event == "PLAYER_ENTERING_WORLD" then
+        -- A fresh login starts a new session; /reload and zoning keep the current one.
+        local isInitialLogin = ...
+        refreshCurrentRecord(isInitialLogin)
+    elseif event == "PLAYER_LOGIN" or event == "PLAYER_MONEY" then
         refreshCurrentRecord()
     end
 end)
